@@ -33,15 +33,53 @@ class Writer:
         self.E_avail = array('f', [0]) # energy availabe from vertex interaction (excluding energy lost inside nuclei)
         self.T_out.Branch('E_avail', self.E_avail, 'E_avail/F')
 
-        self.E_availList = np.zeros((6,), dtype=np.float32) # E avail for: lepton, proton, neutron, pi+-, pi0, others.
-        self.T_out.Branch('E_availList', self.E_availList, 'E_availList[6]/F')
+        # self.E_availList = np.zeros((6,), dtype=np.float32) # E avail for: lepton, proton, neutron, pi+-, pi0, others.
+        # self.T_out.Branch('E_availList', self.E_availList, 'E_availList[6]/F')
+
+        self.E_availList = np.zeros((7,), dtype=np.float32) # E avail for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_availList', self.E_availList, 'E_availList[7]/F')
 
         self.E_depoTotal = array('f', [0]) # total energy deposit from all (charged) tracks
         self.T_out.Branch('E_depoTotal', self.E_depoTotal, 'E_depoTotal/F')
 
-        self.E_depoList = np.zeros((6,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
-        self.T_out.Branch('E_depoList', self.E_depoList, 'E_depoList[6]/F')
+        self.Q_depoTotal = array('f', [0]) # total energy deposit from all (charged) tracks
+        self.T_out.Branch('Q_depoTotal', self.Q_depoTotal, 'Q_depoTotal/F')
 
+        self.Q_depoTotal_thre = array('f', [0]) # total energy deposit from all (charged) tracks
+        self.T_out.Branch('Q_depoTotal_thre', self.Q_depoTotal_thre, 'Q_depoTotal_thre/F')
+
+        self.E_depoTotal_re = array('f', [0]) # total energy deposit from all (charged) tracks
+        self.T_out.Branch('E_depoTotal_re', self.E_depoTotal_re, 'E_depoTotal_re/F')
+
+        self.E_depoTotal_l = array('f', [0]) # total energy deposit from all (charged) tracks
+        self.T_out.Branch('E_depoTotal_l', self.E_depoTotal_l, 'E_depoTotal_l/F')
+
+        # self.E_depoList = np.zeros((6,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        # self.T_out.Branch('E_depoList', self.E_depoList, 'E_depoList[6]/F')
+
+        self.E_depoList = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList', self.E_depoList, 'E_depoList[7]/F')
+
+        self.Q_depoList = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('Q_depoList', self.Q_depoList, 'Q_depoList[7]/F')
+
+        self.Q_depoList_thre = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('Q_depoList_thre', self.Q_depoList_thre, 'Q_depoList_thre[7]/F')
+
+        self.E_depoList_re = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList_re', self.E_depoList_re, 'E_depoList_re[7]/F')
+
+        self.E_depoList_re_track = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList_re_track', self.E_depoList_re_track, 'E_depoList_re_track[7]/F')
+
+        self.E_depoList_re_lep = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList_re_lep', self.E_depoList_re_lep, 'E_depoList_re_lep[7]/F')
+
+        self.E_depoList_re_had = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList_re_had', self.E_depoList_re_had, 'E_depoList_re_had[7]/F')
+
+        self.E_depoList_l = np.zeros((7,), dtype=np.float32) # depo for: lepton, proton, neutron, pi+-, pi0, others.
+        self.T_out.Branch('E_depoList_l', self.E_depoList_l, 'E_depoList_l[7]/F')
 
 
     def Write(self):
@@ -63,20 +101,33 @@ class Writer:
             self.E_nu[0] = self.event.info['E_nu']
 
             self.E_depoTotal[0] = self.event.info['E_depoTotal']
+            self.Q_depoTotal[0] = self.event.info['Q_depoTotal']
+            self.Q_depoTotal_thre[0] = self.event.info['Q_depoTotal_thre']
+            self.E_depoTotal_re[0] = self.event.info['E_depoTotal_re']
+            self.E_depoTotal_l[0] = self.event.info['E_depoTotal_l']
             self.E_avail[0] = self.event.info['E_avail']
             self.E_availList[:] = self.event.info['E_availList']
             self.E_depoList[:] = self.event.info['E_depoList']
+            self.Q_depoList[:] = self.event.info['Q_depoList']
+            self.Q_depoList_thre[:] = self.event.info['Q_depoList_thre']
+            self.E_depoList_re[:] = self.event.info['E_depoList_re']
+            self.E_depoList_re_track[:] = self.event.info['E_depoList_re_track']
+            self.E_depoList_re_had[:] = self.event.info['E_depoList_re_had']
+            self.E_depoList_re_lep[:] = self.event.info['E_depoList_re_lep']
+            self.E_depoList_l[:] = self.event.info['E_depoList_l']
+
 
             self.T_out.Fill()
 
         self.T_out.Write()
+        # self.event.CheckTH2D()
         # print(self.stat)
 
 if __name__ == "__main__":
     if (len(sys.argv)>2):
         outfile = sys.argv[2]
     else:
-        outfile = 'output.root'
+        outfile = '/home/xning/output/output_test.root'
     event = Event(sys.argv[1])
     w = Writer(event, outfile)
     w.Write()
