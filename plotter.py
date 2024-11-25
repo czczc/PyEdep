@@ -19,6 +19,7 @@ class Plotter:
         self.tt = np.array([])
         self.ee = np.array([])
         self.ll = np.array([])
+        self.li = np.array([])
         self.pdg = np.array([])
         self.ans = np.array([])
 
@@ -58,6 +59,7 @@ class Plotter:
         self.ee = np.array([])
         self.qq = np.array([])
         self.ll = np.array([])
+        self.li = np.array([])
         self.pdg = np.array([])
         self.ans = np.array([])
 
@@ -86,8 +88,8 @@ class Plotter:
                     dedx=e/l
                     q=self.event.GetdQdx(dedx)*l
                 else:
-                    q=e*0.35
-
+                    q=e*0.7
+                light = e-q*0.83
                 self.xx = np.append(self.xx, x)
                 self.yy = np.append(self.yy, y)
                 self.zz = np.append(self.zz, z)
@@ -95,6 +97,7 @@ class Plotter:
                 self.ee = np.append(self.ee, e)
                 self.qq = np.append(self.qq, q)
                 self.ll = np.append(self.ll, l)
+                self.li = np.append(self.li, light)
                 self.pdg = np.append(self.pdg, pdg)
                 self.ans = np.append(self.ans, ancestor)
                 self.cc = np.append(self.cc, self.USER_COLORS[ancestor % nColor])
@@ -129,7 +132,7 @@ class Plotter:
         mapping = {'x': self.xx[self.index], 'y': self.yy[self.index], 'z': self.zz[self.index]}
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(5*2, 4), dpi=100)
-        fig.suptitle(self.event.vertex.GetReaction())
+        # fig.suptitle(self.event.vertex.GetReaction())
         cb_ax = fig.add_axes([.94,.124,.03,.754])
 
         # particle plot
@@ -145,9 +148,14 @@ class Plotter:
             cb_ax.set_xlabel('MeV/cm')
 
         elif value == 'length':
-            # charge plot
+            # length plot
             plot_12 = ax2.scatter(mapping[axis[1]], mapping[axis[0]], c=self.ll[self.index], cmap=cmap, vmax=0.2, s=markerSize)
             cb_ax.set_xlabel('cm')
+
+        elif value == 'light':
+            # length plot
+            plot_12 = ax2.scatter(mapping[axis[1]], mapping[axis[0]], c=self.li[self.index], cmap=cmap, vmax=0.2, s=markerSize)
+            cb_ax.set_xlabel('MeV')
 
         fig.colorbar(plot_12, orientation='vertical', cax=cb_ax)
         # fig.tight_layout()
@@ -160,6 +168,7 @@ class Plotter:
             ax.set_xlabel(f'{axis[1]} [m]')
             if ax == ax1:
                 ax.set_ylabel(f'{axis[0]} [m]')
+
 
         xpos = -1.8
         ypos = 3.6
@@ -187,7 +196,66 @@ class Plotter:
             ypos -= 0.35
 
         #ax2.plot()
+        #fig.savefig(self.event.plotpath + '/particle_%s_evt_%d.pdf' % (value, self.event.currentEntry) )
         fig.savefig(self.event.plotpath + '/particle_%s_evt_%d.pdf' % (value, self.event.currentEntry) )
+
+        # extent = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # fig.savefig(self.event.plotpath + '/particle_%s_evt_%d_ax1.pdf' % (value, self.event.currentEntry) , bbox_inches=extent.expanded(1.2, 1.5))
+#         plt.clf() # important to clear figure
+#         plt.close()
+        plt.show()
+
+    def Draw_sp(self, axis='yz', markerSize=0.2, cmap='jet', vmax=2000):
+        # particle, timing, dE/dx
+        mapping = {'x': self.xx[self.index], 'y': self.yy[self.index], 'z': self.zz[self.index]}
+
+        fig, ax1 = plt.subplots(1, 1, figsize=(5, 4), dpi=100)
+        # fig.suptitle(self.event.vertex.GetReaction())
+        # particle plot
+        ax1.scatter(mapping[axis[1]], mapping[axis[0]], c=self.cc[self.index], s=markerSize)
+
+        # fig.tight_layout()
+
+     
+        ax1.set_ylim(-4, 4)
+        ax1.set_xlim(-2, 8)
+        ax1.tick_params(axis='y', direction='in', length=2)
+        ax1.tick_params(axis='x', direction='in', length=2)
+        ax1.set_xlabel(f'{axis[1]} [m]')
+        ax1.set_ylabel(f'{axis[0]} [m]')
+
+
+        xpos = -1.8
+        ypos = 3.6
+        nColor = len(self.USER_COLORS)
+        countnegId = 0
+        for i, particle in enumerate(self.event.vertex.Particles):
+            # Skip negative trk id: in the case of Marley events,
+            # this usually is the final nucleus before deexcitation that G4 doesn't track
+            # the kinematics are not correct either
+            trkId = particle.GetTrackId()
+            if trkId < 0:
+                # Because we skipped the trk id, need to subtract the index for the proper coloring of deposits
+                countnegId += 1
+                continue
+            name = particle.GetName()
+            color = self.USER_COLORS[(i-countnegId) % nColor]
+            # pdg = particle.GetPDGCode()
+            # name = particle.GetName()
+            # trkId = particle.GetTrackId()
+            mom = particle.GetMomentum()
+            KE = mom.E() - mom.M()
+            name = '%s: %.1f MeV' % (name, KE)
+
+            ax1.text(xpos, ypos, name, color=color)
+            ypos -= 0.35
+
+        #ax2.plot()
+        #fig.savefig(self.event.plotpath + '/particle_%s_evt_%d.pdf' % (value, self.event.currentEntry) )
+        fig.savefig(self.event.plotpath + '/particle_evt_%d.pdf' % (self.event.currentEntry) )
+
+        # extent = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # fig.savefig(self.event.plotpath + '/particle_%s_evt_%d_ax1.pdf' % (value, self.event.currentEntry) , bbox_inches=extent.expanded(1.2, 1.5))
 #         plt.clf() # important to clear figure
 #         plt.close()
         plt.show()

@@ -1,12 +1,12 @@
 import ROOT
-from ROOT import TG4Event, TFile, TChain, TF1, TH2D
+from ROOT import TG4Event, TFile, TChain, TF1, TH2D, TH1D
 
 import sys, os
 import numpy as np
 
 class Event:
 
-    def __init__(self, fileName):
+    def __init__(self, fileName, eField=0.5):
         print("event: initilization")
         self.fileName = fileName
         self.ReadTree()
@@ -14,11 +14,22 @@ class Event:
         # self.h2 = TH2D("h2","ratio vs energy",500,0,1,500,0,20)
         # self.h4 = TH2D("h4","ratio vs time",500,0,1,500,0,100)
         # self.h3 = TH2D("h3","dEdx vs residual",500,0,10,500,0,50)
+        self.h_dedx_2d_e = TH2D("h_dedx_2d_e","dEdx_e",1000,0,20,1000,0,20)
+        self.h_dedx_2d_p = TH2D("h_dedx_2d_p","dEdx_p",1000,0,20,1000,0,20)
+        self.h_dedx_2d_n = TH2D("h_dedx_2d_n","dEdx_n",1000,0,20,1000,0,20)
+        self.h_dedx_2d_pi = TH2D("h_dedx_2d_pi","dEdx_pi",1000,0,20,1000,0,20)
+        self.h_dedx_e = TH1D("h_dedx_e","dEdx_e",1000,0,20)
+        self.h_dedx_p = TH1D("h_dedx_p","dEdx_p",1000,0,20)
+        self.h_dedx_n = TH1D("h_dedx_n","dEdx_n",1000,0,20)
+        self.h_dedx_pi = TH1D("h_dedx_pi","dEdx_pi",1000,0,20)
 
+        self.ly_array=np.asarray([156.599, 182.889, 187.899, 181.286, 159.422, 195.915, 180.879, 224.883, 215.799, 175.474, 179.844, 152.537, 158.442, 173.718, 164.869, 170.57, 206.106, 190.386, 189.51, 175.023, 172.214, 214.587, 168.861, 212.289, 192.466, 192.867, 176.751, 200.706, 206.586, 179.376, 200.951, 201.63, 200.69, 210.991, 170.035, 181.236, 192.317, 158.458, 193.091, 181.738, 179.475, 146.137, 186.001, 162.501, 180.432, 195.794, 184.454, 176.903, 176.154, 165.126])
+        self.xbin=np.linspace(-6,6,num=(self.ly_array.ndim+1))
 
         self.currentEntry = 0
         self.A=0
         self.B=0
+        self.E_field=eField #kV/cm
         # create a folder to store plots
         self.plotpath = "./plots"
         if not os.path.exists( self.plotpath):
@@ -56,7 +67,7 @@ class Event:
 
     # ------------------------
     def Jump(self, entryNo):
-        #print(f'reading event {entryNo}/{self.nEntry}')
+        # print(f'reading event {entryNo}/{self.nEntry}')
 
         self.currentEntry = entryNo
         self.simTree.GetEntry(entryNo)
@@ -65,7 +76,8 @@ class Event:
         self.ReadTracks()
         self.ReadEnergyDepo('SimEnergyDeposit')
         # Find tracks, correct energy along tracks.
-        self.ReadEnergyDepoByTrack()
+        # self.ReadEnergyDepoByTrack()
+        self.GetdEdxByTrack()
 
         self.info = {}
         self.info['E_nu'] = 0
@@ -77,6 +89,7 @@ class Event:
         self.info['Q_depoTotal_thre'] = 0
         self.info['E_depoTotal_re'] = 0
         self.info['E_depoTotal_l'] = 0
+        self.info['E_depoTotal_recoil'] = 0
         # self.info['E_depoList'] = np.zeros(6) # lepton, proton, neutron, pi+-, pi0, others.
         # self.info['E_depoList_thre'] = np.zeros(6) #XN lepton, proton, neutron, pi+-, pi0, others.
         self.info['E_depoList'] = np.zeros(7) # electron, proton, neutron, pi+-, pi0, others, muon.
@@ -173,6 +186,7 @@ class Event:
             self.tracks[i].energy['depoTotal_e_re_had'] = 0 #XN
             self.tracks[i].energy['depoTotal_e_re_lep'] = 0 #XN
             self.tracks[i].energy['depoTotal_l'] = 0 #XN
+            self.tracks[i].energy['depoTotal_recoil'] = 0 #XN
 
             self.tracks[i].association['depoList'] = []
             self.tracks[i].association['children'] = []
@@ -201,6 +215,7 @@ class Event:
         # print('debug: muon deposit energy:', depoEnergy)
 
         for i, depo in enumerate(self.depos):
+            # trkId_list = depo.Contrib
             trkId = depo.Contrib[0]
             edep = depo.GetEnergyDeposit()
             mm2cm=0.1
@@ -245,6 +260,9 @@ class Event:
             # track.energy['depoTotal_q_thre'] += qdep_thre #XN
             # track.energy['depoTotal_e_re'] += edep_re #XN
             # track.energy['depoTotal_l'] += edep_l #XN
+            # for signal_track in trkId_list:
+            #         track = self.tracks[signal_track]
+            #         track.association['depoList'].append(i)
         
         #print("legnth of depo: ",len(self.depos))
         # E_tot = np.sum([depo.GetEnergyDeposit() for depo in self.depos])
@@ -317,11 +335,74 @@ class Event:
                     track.energy['depoTotal_q_thre'] += dQ_thre #XN charge with threshold
                     track.energy['depoTotal_e_re'] += dE_re #XN Total reconstructed energy
                     track.energy['depoTotal_l'] += dL #XNlength  Light
-
+                    # print(dQ,dL,e)
                     # print("proton: ",track.energy['depoTotal_q'],track.energy['depoTotal'],track.energy['depoTotal_q']/track.energy['depoTotal'])
 
+    def GetdEdxByTrack(self):
+        #find particle
+        trkId_proton=[]
+        trkId_neutron=[]
+        trkId_cpion=[]
+        trkId_lepton=[]
+        for particle in self.vertex.Particles:
+            # print("all", particle.GetTrackId())        
+            if particle.GetPDGCode() in [11,-11,13,-13,111]:
+                trkId_lepton.append(particle.GetTrackId())
+                # print(particle.GetTrackId())    
+            if particle.GetPDGCode() == 2212:
+                trkId_proton.append(particle.GetTrackId()) 
+                # print("proton", particle.GetTrackId())    
+            if particle.GetPDGCode() == 2112:
+                trkId_neutron.append(particle.GetTrackId()) 
+            if particle.GetPDGCode() in [211, -211]:
+                trkId_cpion.append(particle.GetTrackId()) 
+
+        mm2cm = 0.1
+        for i,track in enumerate(self.tracks):
+            depoList = track.association['depoList']
+            ancestor = track.association['ancestor']
+            # print(ancestor)
+            # step = np.asarray(track.association['steplength'])
+            # trackpdg = track.GetPDGCode()
+            if track.GetPDGCode()==2112:
+                selfDepo = track.energy['depoTotal']
+                track.energy['depoTotal_recoil'] += selfDepo
+                if selfDepo!=0:
+                    continue
+            elif track.GetPDGCode()>1e9:
+                mom = track.GetInitialMomentum()
+                mass = mom.M()
+                KE = mom.E() - mass 
+                track.energy['depoTotal_recoil'] += KE
 
 
+
+            if len(depoList)>0:
+                for j,di in enumerate(depoList):
+                    depo = self.depos[di]
+                    e = depo.GetEnergyDeposit()
+                    steplength = depo.GetTrackLength()*mm2cm
+                    dEdx= e/steplength
+                    #if e>0.075:
+                    if steplength>0.01:
+                        if ancestor in trkId_lepton:
+                            self.h_dedx_e.Fill(dEdx)
+                            self.h_dedx_2d_e.Fill(dEdx,e)
+                            # print(dEdx,e,steplength) 
+                        elif ancestor in trkId_proton :
+                            self.h_dedx_p.Fill(dEdx)
+                            self.h_dedx_2d_p.Fill(dEdx,e)
+                        elif ancestor in trkId_neutron :
+                            self.h_dedx_n.Fill(dEdx)
+                            self.h_dedx_2d_n.Fill(dEdx,e)
+                        elif ancestor in trkId_cpion :
+                            self.h_dedx_pi.Fill(dEdx)
+                            self.h_dedx_2d_pi.Fill(dEdx,e)
+                            # print(dEdx,e,steplength) 
+                        # elif ancestor in trkId_proton:
+                        #     self.h_dedx_h.Fill(dEdx)
+                        #     print(dEdx,e,steplength) 
+      
     def CheckTH2D(self):
         outfile = ROOT.TFile.Open("proton_resi_dedx.root","RECREATE")
 
@@ -329,8 +410,10 @@ class Event:
         # self.h2.Write()
         # self.h4.Write()
         # self.h3.Write()
+        self.h_dedx_e.Write()
+        self.h_dedx_h.Write()
         outfile.Close()
-        print(self.A, self.B)
+        # print(self.A, self.B)
 
     # ------------------------
     def FindDepoListFromTrack(self, trkId):
@@ -394,6 +477,7 @@ class Event:
             depoE_re_track = self.GetEnergyDepoWithDesendents_key(trkId,"depoTotal_e_re_track") #XN
             depoE_re_lep = self.GetEnergyDepoWithDesendents_key(trkId,"depoTotal_e_re_lep") #XN
             depoE_re_had = self.GetEnergyDepoWithDesendents_key(trkId,"depoTotal_e_re_had") #XN
+            depoE_recoil = self.GetEnergyDepoWithDesendents_key(trkId,"depoTotal_recoil") #XN
             depoE_l = self.GetEnergyDepoWithDesendents_l(trkId) #XN
             mom = particle.GetMomentum()
             mass = mom.M()
@@ -403,6 +487,7 @@ class Event:
             self.info['Q_depoTotal_thre'] += depoQ_thre
             self.info['E_depoTotal_re'] += depoE_re
             self.info['E_depoTotal_l'] += depoE_l
+            self.info['E_depoTotal_recoil'] += depoE_recoil
             # fill E_availList: lepton, proton, neutron, pi+-, pi0, others.
             # if (pdg in [13, -13, 11, -11]):
             #     self.info['E_avail'] += (KE + mass)
@@ -544,29 +629,30 @@ class Event:
         mm2m = 0.001
         mm2cm = 0.1
         print("depolist:",depoList) 
-        if len(depoList)>0:
-                depo0=self.depos[depoList[0]]
-                depoN=self.depos[depoList[-1]]
-                X0=depo0.GetStart().X()
-                Xn=depoN.GetStop().X()
-                Y0=depo0.GetStart().Y()
-                Yn=depoN.GetStop().Y()
-                Z0=depo0.GetStart().Z()
-                Zn=depoN.GetStop().Z()
-                length_sq=(X0-Xn)*(X0-Xn)+(Y0-Yn)*(Y0-Yn)+(Z0-Zn)*(Z0-Zn)
-                length = np.sqrt(length_sq)*mm2cm #cm
-                print("tracklength = ",length,"cm") 
-        # for di in depoList:
-        #     depo = self.depos[di]
-        #     x = (depo.GetStart().X() ) 
-        #     y = (depo.GetStart().Y() ) 
-        #     z = (depo.GetStart().Z() ) 
-        #     x_e= (depo.GetStop().X() ) 
-        #     y_e= (depo.GetStop().Y() ) 
-        #     z_e= (depo.GetStop().Z() ) 
-        #     t = (depo.GetStart().T() ) # ns
-        #     e = depo.GetEnergyDeposit()
-        #     l = depo.GetTrackLength() *mm2cm # most are 0.5 mm
+        # if len(depoList)>0:
+        #         depo0=self.depos[depoList[0]]
+        #         depoN=self.depos[depoList[-1]]
+        #         X0=depo0.GetStart().X()
+        #         Xn=depoN.GetStop().X()
+        #         Y0=depo0.GetStart().Y()
+        #         Yn=depoN.GetStop().Y()
+        #         Z0=depo0.GetStart().Z()
+        #         Zn=depoN.GetStop().Z()
+        #         length_sq=(X0-Xn)*(X0-Xn)+(Y0-Yn)*(Y0-Yn)+(Z0-Zn)*(Z0-Zn)
+        #         length = np.sqrt(length_sq)*mm2cm #cm
+        #         print("tracklength = ",length,"cm") 
+        for di in depoList:
+            depo = self.depos[di]
+            # x = (depo.GetStart().X() ) 
+            # y = (depo.GetStart().Y() ) 
+            # z = (depo.GetStart().Z() ) 
+            # x_e= (depo.GetStop().X() ) 
+            # y_e= (depo.GetStop().Y() ) 
+            # z_e= (depo.GetStop().Z() ) 
+            # t = (depo.GetStart().T() ) # ns
+            # e = depo.GetEnergyDeposit()
+            l = depo.GetTrackLength() *mm2cm # most are 0.5 mm
+            print("tracklength = ",l,"cm") 
         #     print(e,l)  
 
     # ------------------------
@@ -658,10 +744,14 @@ class Event:
             energy += self.GetEnergyDepoWithDesendents_Q(childId)
         return energy
     
+    
     def BirksModel(self, dEdx):
         A_3t=0.8
         k_3t=0.0486 # [(g/MeVcm2)(kV/cm)]
-        E=0.5 # [kV/cm]
+        # E=0.5 # [kV/cm]
+        E=self.E_field
+        # print("e field = ",E)
+
         rho=1.38 # [g/cm3]
         ips=E*rho
         R=A_3t/(1+k_3t/ips*dEdx)
@@ -670,7 +760,8 @@ class Event:
     def BirksModel_inverse(self, dQdx):
         A_3t=0.8
         k_3t=0.0486 # [(g/MeVcm2)(kV/cm)]
-        E=0.5 # [kV/cm]
+        # E=0.5 # [kV/cm]
+        E=self.E_field
         rho=1.38 # [g/cm3]
         ips=E*rho
         R=1/(A_3t-k_3t/ips*dQdx)
